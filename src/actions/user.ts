@@ -1,3 +1,4 @@
+'use server';
 import { client } from "@/lib/prisma";
 import { currentUser } from "@clerk/nextjs/server";
 
@@ -46,6 +47,6 @@ export const onAuthenticateUser = async () => {
     }
     catch (error) {
         console.error('🔴 ERROR', error);
-        return {status: 500};
+        return {status: 500, error: 'Internal server error'};
     }
 }
