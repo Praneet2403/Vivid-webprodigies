@@ -1,3 +1,4 @@
+'use client'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { 
     Sidebar,
@@ -10,6 +11,8 @@ import {
  } from '@/components/ui/sidebar'
 import { Project, User } from '@prisma/client'
 import React from 'react'
+import NavMain from './nav-main'
+import { data } from '@/lib/constants'
 
 const AppSidebar = ({recentProjects, user, ...props}:
     {
@@ -40,8 +43,9 @@ const AppSidebar = ({recentProjects, user, ...props}:
                 </span>
             </SidebarMenuButton>
         </SidebarHeader>
-            <SidebarContent>
-                <SidebarGroup></SidebarGroup>
+            <SidebarContent className='px-3 mt-10 gap-y-6'>
+                <NavMain items={data.navMain} />
+                <RecentOpen />
             </SidebarContent>
         <SidebarFooter/>
     </Sidebar>

@@ -17,7 +17,7 @@ export const getAllProjects = async () => {
                 isDeleted: false,
             },
             orderBy: {
-                createdAt: 'desc',
+                updatedAt: 'desc',
             },
         });
 
