@@ -13,6 +13,7 @@ import { Project, User } from '@prisma/client'
 import React from 'react'
 import NavMain from './nav-main'
 import { data } from '@/lib/constants'
+import RecentOpen from './recent-open'
 
 const AppSidebar = ({recentProjects, user, ...props}:
     {
@@ -45,7 +46,7 @@ const AppSidebar = ({recentProjects, user, ...props}:
         </SidebarHeader>
             <SidebarContent className='px-3 mt-10 gap-y-6'>
                 <NavMain items={data.navMain} />
-                <RecentOpen />
+                <RecentOpen recentProjects={recentProjects}/>
             </SidebarContent>
         <SidebarFooter/>
     </Sidebar>

@@ -1,6 +1,7 @@
 // src/app/(protected)/(pages)/(dashboardPages)/dashboard/layout.tsx
 'use client'; // Optional, only if you need client components
 
+import { getRecentProjects } from '@/actions/projects';
 import { onAuthenticateUser } from '@/actions/user';
 import AppSidebar from '@/components/global/app-sidebar';
 import { SidebarProvider } from '@/components/ui/sidebar';
@@ -12,7 +13,7 @@ type Props = {
 };
 
 const Layout =  async ({ children }: Props) => {
-  // const recent Projects = await getRecentProjects();
+  const recentProjects = await getRecentProjects();
 
   const checkUser = await onAuthenticateUser();
 
@@ -22,7 +23,7 @@ const Layout =  async ({ children }: Props) => {
 
   return (
     <SidebarProvider>
-      <AppSidebar />
+      <AppSidebar user = {checkUser.user} recentProjects={recentProjects.data || []} />
       <main className="flex-1">{children}</main>
     </SidebarProvider>
   );

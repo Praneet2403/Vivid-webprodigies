@@ -1,7 +1,7 @@
 import { getAllProjects } from '@/actions/projects';
 import React from 'react';
 
-const  DashboardPage = async () => {
+export default async function DashboardPage() {
   const allProjects = await getAllProjects();
 
   return (
@@ -20,7 +20,4 @@ const  DashboardPage = async () => {
       {/* Render projects here */}
     </div>
   );
-  
 }
-
-export default DashboardPage;
