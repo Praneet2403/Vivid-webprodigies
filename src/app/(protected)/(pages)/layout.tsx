@@ -28,9 +28,8 @@ const Layout =  async ({ children }: Props) => {
       {/* <main className="flex-1">{children}</main> */}
 
       <SidebarInset>
-        <UpperInfoBar user={checkUser.user}>
+        <UpperInfoBar user={checkUser.user} />
           {children}
-        </UpperInfoBar>
       </SidebarInset>
 
 
