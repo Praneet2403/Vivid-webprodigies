@@ -62,7 +62,7 @@ const ProjectCard = ({
                 <p className='text-sm text-muted-foreground'
                 suppressContentEditableWarning
                 >
-                    {timeAgo(createdAt)}
+                    {timeAgo(createdAt) ?? ""}
                 </p>
             </div>
         </div>
