@@ -24,9 +24,7 @@ const Projects = ({projects}: Props) => {
             createdAt={project?.createdAt.toString()}
             isDelete={project?.isDeleted}
             slideData={project?.slides}
-            src = {
-                project.thumbnail || 'https://unsplash.com/photos/the-sun-sets-over-a-sea-of-clouds-XOi7-8Q0qPs'
-            }
+            themeName={project?.themeName}
             />
         ))}
     </motion.div>

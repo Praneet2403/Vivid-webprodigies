@@ -1,5 +1,5 @@
 import React from 'react'
-import StrokeEarth from '@/icons/StrokeEarth.svg'
+// import StrokeEarth from '@/icons/StrokeEarth.svg'
 
 
 
@@ -9,7 +9,7 @@ type Props = {}
 const NotFound = (props: Props) => {
   return (
     <div className="flex flex-col min-h-[70vh] w-full justify-center items-center gap-12">
-      <StrokeEarth />
+      <img src="/StrokeEarth.svg" alt="Stroke Earth" className="w-32 h-32" />
 
       <div className="flex flex-col items-center justify-center text-center">
         <p className="text-3xl font-semibold text-primary">
