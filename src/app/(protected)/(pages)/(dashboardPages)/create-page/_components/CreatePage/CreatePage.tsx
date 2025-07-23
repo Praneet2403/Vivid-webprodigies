@@ -4,12 +4,18 @@ import {motion} from  'framer-motion'
 import { containerVariants, CreatePageCard, itemVariants } from '@/lib/constants'
 import { Scale } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import RecentPrompts from '../GenerateAI/RecentPrompts'
+import usePromptStore from '@/store/usePromptStore'
 
 type Props = {
   onSelectOption: (option :string) => void
 }
 
 const CreatePage = ({onSelectOption}: Props) => {
+  const {
+    prompts,
+    setPage
+  } = usePromptStore()
 
   return (
     <motion.div
@@ -87,6 +93,8 @@ const CreatePage = ({onSelectOption}: Props) => {
           </motion.div>
         ))}
       </motion.div>
+
+      <RecentPrompts />
     </motion.div>
   )
 }
