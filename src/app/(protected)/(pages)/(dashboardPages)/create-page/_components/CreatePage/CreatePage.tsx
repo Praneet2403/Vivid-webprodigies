@@ -1,5 +1,5 @@
 'use client'
-import React from 'react'
+import React, { useEffect } from 'react'
 import {motion} from  'framer-motion'
 import { containerVariants, CreatePageCard, itemVariants } from '@/lib/constants'
 import { Scale } from 'lucide-react'
@@ -16,6 +16,11 @@ const CreatePage = ({onSelectOption}: Props) => {
     prompts,
     setPage
   } = usePromptStore()
+
+  // useEffect(() => {
+  //   setPage('create')
+  // }, [])
+
 
   return (
     <motion.div
@@ -94,7 +99,7 @@ const CreatePage = ({onSelectOption}: Props) => {
         ))}
       </motion.div>
 
-      <RecentPrompts />
+      {prompts.length > 0 && <RecentPrompts />}
     </motion.div>
   )
 }

@@ -5,18 +5,27 @@ import { containerVariants, itemVariants } from "@/lib/constants";
 import { Card } from "@/components/ui/card";
 import { timeAgo } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import useCreativeAIStore from "@/store/useCreativeAIStore";
+import { toast } from "sonner";
 
 type Props = {};
 
 const RecentPrompts = (props: Props) => {
   const { prompts, setPage } = usePromptStore();
+  const {addMultipleOutlines ,setCurrentAiPrompt} = useCreativeAIStore()
   const handleEdit = (id: string) => {
   const prompt = prompts.find((prompt) => prompt?.id === id)
   if (prompt) {
     setPage('creative-ai')
     addMultipleOutlines(prompt?.outlines)
     setCurrentAiPrompt(prompt?.title)
+  } else {
+    toast.error('Error' , {
+      description: 'Prompt not found',
+    })
   }
+
+  
 }
   return (
     <motion.div variants={containerVariants} className="space-y-4 !mt-20">
