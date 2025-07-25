@@ -15,6 +15,7 @@ import { motion } from "framer-motion";
 import { ChevronLeft, Loader2, RotateCcw } from "lucide-react";
 import { useRouter } from "next/navigation";
 import React, { useState } from "react";
+import CardList from "../common/CardList";
 
 type Props = {
   onBack: () => void;
@@ -28,8 +29,14 @@ const CreateAI = (props: Props) => {
   const [editText, setEditText] = useState("");
   const [noOfCards, setNoOfCards] = useState(0);
 
-  const { currentAiPrompt, setCurrentAiPrompt, outlines, resetOutlines } =
-    useCreativeAIStore();
+  const {
+    currentAiPrompt,
+    setCurrentAiPrompt,
+    outlines,
+    resetOutlines,
+    addOutline,
+    addMultipleOutlines,
+  } = useCreativeAIStore();
 
   const handleBack = () => {
     onBack();
@@ -131,8 +138,27 @@ const CreateAI = (props: Props) => {
           )}
         </Button>
       </div>
+      <CardList
+        outlines={outlines}
+        addOutline={addOutline}
+        addMultipleOutlines={addMultipleOutlines}
+        editingCard={editingCards}
+        selectedCard={selectedCards}
+        editText={editText}
+        onEditChange={setEditText}
+        onCardSelect={setSelectedCards}
+        setEditText={setEditText}
+        setEditingCard={setEditingCards}
+        setSelectedCard={setSelectedCards}
+        onCardDoubleClick={(id, title) => {
+          setEditingCards(id);
+          setEditText(title);
+        }}
+      />
 
-      
+      {outlines.length > 0 && (
+        <Button className="w-full" onClick={handleGenerate}></Button>
+      )}
     </motion.div>
   );
 };
