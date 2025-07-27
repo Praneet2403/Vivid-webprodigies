@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import React from "react";
 import CreatePage from "./CreatePage/CreatePage";
 import CreateAI from "./GenerateAI/CreativeAI";
+import ScratchPage from "./Scratch/ScratchPage";
 
 type Props = {};
 
@@ -33,7 +34,7 @@ const RenderPage = (props: Props) => {
       case "creative-ai":
         return <CreateAI onBack={handleBack}/>;
       case "create-scratch":
-        return <></>;
+        return <ScratchPage onBack={handleBack} />;
       default:
         return null;
     }
