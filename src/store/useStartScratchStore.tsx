@@ -1,4 +1,5 @@
 import { OutlineCard } from '@/lib/types'
+import { Project } from '@prisma/client'
 import { create } from 'zustand'
 import { devtools, persist } from 'zustand/middleware'
 
@@ -7,6 +8,7 @@ type OutlineStore = {
   resetOutlines: () => void
   addOutline: (outline: OutlineCard) => void
   addMultipleOutlines: (outlines: OutlineCard[]) => void
+  // setProject: (project: Project) => void;
 }
 
 const useScratchStore = create<OutlineStore>()(

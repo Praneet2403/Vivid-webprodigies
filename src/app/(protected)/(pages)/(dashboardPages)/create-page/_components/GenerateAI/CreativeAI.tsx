@@ -14,12 +14,14 @@ import useCreativeAIStore from "@/store/useCreativeAIStore";
 import { motion } from "framer-motion";
 import { ChevronLeft, Loader2, RotateCcw } from "lucide-react";
 import { useRouter } from "next/navigation";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import CardList from "../common/CardList";
 import usePromptStore from "@/store/usePromptStore";
 import RecentPrompts from "./RecentPrompts";
 import { toast } from "sonner";
 import { generateCreativePrompt } from "@/actions/chatgpt";
+import { OutlineCard } from "@/lib/types";
+import { v4 } from "uuid";
 
 type Props = {
   onBack: () => void;
@@ -66,10 +68,36 @@ const CreateAI = (props: Props) => {
     setIsGenerating(true);
     const res = await generateCreativePrompt(currentAiPrompt);
 
-    //WIP: use openAI and completer this func.
+    if(res.status=== 200 && res?.data?.outlines) {
+      const cardsData: OutlineCard[] = []
+      res.data?.outlines.map((outline: string, idx: number) => {
+        const newCard = {
+          id: v4(),
+          title: outline,
+          order: idx + 1,
+        }
+        cardsData.push(newCard);
+      })
+      addMultipleOutlines(cardsData);
+      setNoOfCards(cardsData.length);
+      toast.success("Success", {
+        description: "Outline generated successfully!",
+      });
+    } else {
+      toast.error("Error", {
+        description: "Failed to generate outline.",
+      });
+    }
+    setIsGenerating(false);
+
   };
 
-  const handleGenerate = () => {};
+  // const handleGenerate = () => {};
+
+    useEffect(() => {
+      setNoOfCards(outlines.length);
+
+    },[outlines.length]);
 
   return (
     <motion.div
@@ -177,7 +205,7 @@ const CreateAI = (props: Props) => {
       {outlines.length > 0 && (
         <Button
           className="w-full"
-          onClick={handleGenerate}
+          // onClick={handleGenerate}
           disabled={isGenerating}
         >
           {isGenerating ? (
