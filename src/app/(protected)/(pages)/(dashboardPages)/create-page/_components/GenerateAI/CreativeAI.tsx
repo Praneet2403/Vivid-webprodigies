@@ -22,6 +22,8 @@ import { toast } from "sonner";
 import { generateCreativePrompt } from "@/actions/chatgpt";
 import { OutlineCard } from "@/lib/types";
 import { v4 } from "uuid";
+import { createProject } from "@/actions/projects";
+import { useSlideStore } from "@/store/useSlideStore";
 
 type Props = {
   onBack: () => void;
@@ -29,6 +31,7 @@ type Props = {
 
 const CreateAI = (props: Props) => {
   const router = useRouter();
+  const { setProject } = useSlideStore();
   const [editingCards, setEditingCards] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [selectedCards, setSelectedCards] = useState<string | null>(null);
@@ -68,16 +71,16 @@ const CreateAI = (props: Props) => {
     setIsGenerating(true);
     const res = await generateCreativePrompt(currentAiPrompt);
 
-    if(res.status=== 200 && res?.data?.outlines) {
-      const cardsData: OutlineCard[] = []
+    if (res.status === 200 && res?.data?.outlines) {
+      const cardsData: OutlineCard[] = [];
       res.data?.outlines.map((outline: string, idx: number) => {
         const newCard = {
           id: v4(),
           title: outline,
           order: idx + 1,
-        }
+        };
         cardsData.push(newCard);
-      })
+      });
       addMultipleOutlines(cardsData);
       setNoOfCards(cardsData.length);
       toast.success("Success", {
@@ -89,15 +92,55 @@ const CreateAI = (props: Props) => {
       });
     }
     setIsGenerating(false);
+  };
+
+  const handleGenerate = async () => {
+    setIsGenerating(true);
+    if (outlines.length === 0) {
+      toast.error("Error", {
+        description: "Please add at least one card before generating.",
+      });
+      return;
+    }
+    try {
+      const res = await createProject(
+        currentAiPrompt,
+        outlines.slice(0, noOfCards)
+      );
+      if (res.status !== 200 || !res.data) {
+        throw new Error("Unable to create project");
+      }
+
+      router.push(`/presentation/${res.data.id}/select-theme`);
+      setProject(res.data);
+
+      addPrompt({
+        id: v4(),
+        title: currentAiPrompt || outlines?.[0]?.title,
+        outlines: outlines,
+        createdAt: new Date().toISOString(),
+      });
+
+      toast.success("Succes", {
+        description: "Project created successfully!",
+      });
+
+      setCurrentAiPrompt("");
+      resetOutlines();
+    } catch (error) {
+      console.log(error);
+      toast.error("Error", {
+        description: "Failed to create project.",
+      });
+    } finally {
+      setIsGenerating(false);
+    }
 
   };
 
-  // const handleGenerate = () => {};
-
-    useEffect(() => {
-      setNoOfCards(outlines.length);
-
-    },[outlines.length]);
+  useEffect(() => {
+    setNoOfCards(outlines.length);
+  }, [outlines.length]);
 
   return (
     <motion.div
@@ -205,7 +248,7 @@ const CreateAI = (props: Props) => {
       {outlines.length > 0 && (
         <Button
           className="w-full"
-          // onClick={handleGenerate}
+          onClick={handleGenerate}
           disabled={isGenerating}
         >
           {isGenerating ? (
