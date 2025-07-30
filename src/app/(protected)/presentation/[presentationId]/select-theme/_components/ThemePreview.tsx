@@ -7,6 +7,8 @@ import { Theme } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 import ThemeCard from "./ThemeCard";
+import { themes } from "@/lib/constants";
+import ThemePicker from "./ThemePicker";
 
 type Props = {};
 
@@ -138,6 +140,11 @@ const ThemePreview = (props: Props) => {
     </div>
   );
 
+  const applyTheme = (theme: Theme) => {
+    setSelectedTheme(theme);
+    setCurrentTheme(theme);
+  }
+
   return (
     <div
       className="flex h-screen w-full"
@@ -163,11 +170,39 @@ const ThemePreview = (props: Props) => {
             <ArrowLeft className="mr-2 h-5 w-5" />
             Back
           </Button>
-        </div>
-        <div className="flex w-full justify-center items-center relative flex-grow">
-          <ThemeCard />
+          <div className="flex w-full justify-center items-center relative flex-grow">
+            <ThemeCard
+              title="Quick Start"
+              description="Get up and running in no time"
+              content={leftCardContent}
+              variant="left"
+              theme={selectedTheme}
+              controls={controls}
+            />
+            <ThemeCard
+              title="Main Preview"
+              description="This is the main theme preview card"
+              content={mainCardContent}
+              variant="main"
+              theme={selectedTheme}
+              controls={controls}
+            />
+            <ThemeCard
+              title="Theme Features"
+              description="Discover what our themes can do"
+              content={rightCardContent}
+              variant="right"
+              theme={selectedTheme}
+              controls={controls}
+            />
+          </div>
         </div>
       </div>
+      <ThemePicker 
+      selectedTheme={selectedTheme}
+      themes ={themes}
+      onThemeSelect = {applyTheme}
+      />
     </div>
   );
 };
