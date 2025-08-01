@@ -713,3 +713,4 @@ export const generateLayouts = async (projectId: string, theme: string) => {
     return { status: 500, error: "Internal server error" };
   }
 };
+

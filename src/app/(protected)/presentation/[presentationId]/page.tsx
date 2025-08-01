@@ -8,11 +8,13 @@ import { redirect, useParams } from "next/navigation";
 import React, { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { DndProvider } from "react-dnd";
+import { HTML5Backend } from "react-dnd-html5-backend";
+import Navbar from "./_components/Navbar/Navbar";
 
 type Props = {};
 
 const Page = (props: Props) => {
-    //WIP: create the presentation view
+  //WIP: create the presentation view
   const params = useParams();
   const { setTheme } = useTheme();
   const [isLoading, setIsLoading] = useState(true);
@@ -48,14 +50,30 @@ const Page = (props: Props) => {
   }, []);
 
   if (isLoading) {
-  return (
-    <div className="flex items-center justify-center h-screen">
-      <Loader2 className="w-8 h-8 animate-spin text-primary" />
-    </div>
-  )
-}
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
-  return <DndProvider></DndProvider>
+  return (
+    <DndProvider backend={HTML5Backend}>
+      <div className="min-h-screen flex flex-col">
+        <Navbar presentationId={params.presentation as string} />
+        <div
+          className="flex-1 flex overflow-hidden pt-16"
+          style={{
+            color: currentTheme.accentColor,
+            fontFamily: currentTheme.fontFamily,
+            backgroundColor: currentTheme.backgroundColor,
+          }}
+        >
+          <LayoutPreview />
+        </div>
+      </div>
+    </DndProvider>
+  );
 };
 
 export default Page;

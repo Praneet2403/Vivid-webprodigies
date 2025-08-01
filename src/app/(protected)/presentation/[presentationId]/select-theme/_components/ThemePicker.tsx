@@ -1,11 +1,14 @@
 import { generateLayouts } from "@/actions/chatgpt";
 import { Button } from "@/components/ui/button";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Theme } from "@/lib/types";
 import { useSlideStore } from "@/store/useSlideStore";
 import { Loader2, Wand2 } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import React, { useState } from "react";
 import { toast } from "sonner";
+import { motion } from "framer-motion";
+import { themes } from "@/lib/constants";
 
 type Props = {
   selectedTheme: Theme;
@@ -19,43 +22,53 @@ const ThemePicker = ({ onThemeSelect, selectedTheme }: Props) => {
   const { project, setSlides, currentTheme } = useSlideStore();
   const [loading, setLoading] = useState(false);
 
-  const handleGenerateLayouts= async() => {
+  const handleGenerateLayouts = async () => {
     setLoading(true);
-    if(!selectedTheme) {
-        toast.error("Error", {
-            description: "Please select a theme first.",
-            });
-            return;
+    if (!selectedTheme) {
+      toast.error("Error", {
+        description: "Please select a theme first.",
+      });
+      return;
     }
-    if(project?.id === '') {
-        toast.error("Error", {
-            description: "Please create a project first.",
-            });
-            router.push('/create-page');
-            return;
+    if (project?.id === "") {
+      toast.error("Error", {
+        description: "Please create a project first.",
+      });
+      router.push("/create-page");
+      return;
     }
-    try{
-        const res = await generateLayouts(
-            params.presentationId as string,
-            currentTheme.name,
-        );
+    try {
+      const res = await generateLayouts(
+        params.presentationId as string,
+        currentTheme.name
+      );
 
-        if(res.status !== 200 && !res?.data) {
-            throw new Error("Failed to generate layouts.");
-        }
-        toast.success("Success", {
-            description: "Layouts generated successfully!",
-            });
-            router.push(`/presentation/${project?.id}`);
-            setSlides(res.data);
-    } catch(error) {
-        toast.error("Error", {
-            description: "Failed to generate layouts. Please try again.",
-        });
+      if (res.status !== 200) {
+        throw new Error(res.error || "Failed to generate layouts.");
+      }
+      
+      // At this point, TypeScript knows res.status === 200, so res.data should exist
+      const data = (res as { status: 200; data: any }).data;
+      
+      if (!data) {
+        throw new Error("No data received from layout generation.");
+      }
+      
+      toast.success("Success", {
+        description: "Layouts generated successfully!",
+      });
+      router.push(`/presentation/${project?.id}`);
+      
+      setSlides(data);
+      }
+     catch (error) {
+      toast.error("Error", {
+        description: "Failed to generate layouts. Please try again.",
+      });
     } finally {
-        setLoading(false);
-    } 
-  }
+      setLoading(false);
+    }
+  };
 
   return (
     <div
@@ -101,6 +114,57 @@ const ThemePicker = ({ onThemeSelect, selectedTheme }: Props) => {
           )}
         </Button>
       </div>
+
+      <ScrollArea className="flex-grow pb-8 px-8">
+        <div className="grid grid-cols-1 gap-4">
+          {themes.map((theme) => (
+            <motion.div
+              key={theme.name}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+            >
+              <Button
+                onClick={() => {
+                  onThemeSelect(theme);
+                }}
+                className="flex flex-col
+                   items-center justify-start p-6
+                   w-full h-auto"
+                style={{
+                  fontFamily: theme.fontFamily,
+                  color: theme.fontColor,
+                  background: theme.gradientBackground || theme.backgroundColor,
+                }}
+              >
+                <div className="w-full flex items-center justify-center">
+                  <span
+                    className="text-xl font-bold"
+                  >
+                    {theme.name}
+                  </span>
+                  <div
+                    className="w-3 h-3 rounded-full"
+                    style={{ backgroundColor: theme.accentColor }}
+                  />
+                </div>
+                <div className="space-y-1 w-full">
+                  <div
+                    className="text-2xl font-bold"
+                    style={{ color: theme.accentColor }}
+                  >
+                    Title
+                  </div>
+                  <div className="text-base opacity-80">
+                     Body &{''}
+                     <span style={{color: theme.accentColor}}>link</span>
+
+                  </div>
+                </div>
+              </Button>
+            </motion.div>
+          ))}
+        </div>
+      </ScrollArea>
     </div>
   );
 };
