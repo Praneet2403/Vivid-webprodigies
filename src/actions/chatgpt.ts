@@ -647,11 +647,30 @@ are no duplicate layouts across the array.
 
     let jsonResponse;
     try {
-      jsonResponse = JSON.parse(responseContent.replace(/```json|```/g, ""));
+      // Clean up the response content more thoroughly
+      let cleanedContent = responseContent.trim();
+      
+      // Remove markdown code blocks
+      cleanedContent = cleanedContent.replace(/```json\s*/g, "");
+      cleanedContent = cleanedContent.replace(/```\s*/g, "");
+      
+      // Remove any leading/trailing whitespace and newlines
+      cleanedContent = cleanedContent.trim();
+      
+      // Find JSON content between curly braces or square brackets
+      const jsonMatch = cleanedContent.match(/[\[\{][\s\S]*[\]\}]/);
+      if (jsonMatch) {
+        cleanedContent = jsonMatch[0];
+      }
+      
+      console.log("🔍 Attempting to parse JSON:", cleanedContent.substring(0, 200) + "...");
+      
+      jsonResponse = JSON.parse(cleanedContent);
       await Promise.all(jsonResponse.map(replaceImagePlaceholders));
     } catch (error) {
-      console.log("🔴 ERROR:", error);
-      throw new Error("Invalid JSON format received from AI");
+      console.log("🔴 JSON PARSE ERROR:", error);
+      console.log("🔴 Raw response content:", responseContent.substring(0, 500) + "...");
+      throw new Error(`Invalid JSON format received from AI: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
     console.log("🟢 Layouts generated successfully:");
     return { status: 200, data: jsonResponse };
