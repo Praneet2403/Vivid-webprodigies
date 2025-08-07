@@ -70,6 +70,11 @@ const ContentRenderer: React.FC<MasterRecursiveComponentProps> = React.memo(
           <Paragraph {...commonProps} />
         </motion.div>
         )
+      case 'table':
+        return (<motion.div className="w-full h-full" {...animationProps}>
+          <TableComponent {...commonProps} />
+        </motion.div>
+        )
       case 'column':
         if (Array.isArray(content.content)) {
           return (
