@@ -28,7 +28,7 @@ const DropZone = ({
             if (item.type === 'component') {
                 addComponentInSlide(
                     slideId,
-                    { ...item.component, id: uuidv4() }
+                    { ...item.component, id: uuidv4() },
                     parentId,
                     index
                 )

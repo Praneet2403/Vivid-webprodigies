@@ -1,6 +1,6 @@
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 import { useSlideStore } from "@/store/useSlideStore";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 
 interface TableComponentProps {
     content: string[][],
@@ -21,6 +21,33 @@ const TableComponent = ({ content, onChange, isPreview, isEditable, initialRowSi
         }
         return content
     })
+
+
+
+    const handleResizeCol = (index: number, newSize: number) => {
+        if (!isEditable) return
+        const newColSizes = [...colSizes]
+        newColSizes[index] = newSize
+        setColSizes(newColSizes)
+    }
+
+    const updateCell = (rowIndex: number, colIndex: number, value: string) => {
+        if (!isEditable) return
+
+        const newData = tableData.map((row, rIndex) =>
+            rIndex === rowIndex
+                ? row.map((cell, cIndex) => (cIndex === colIndex ? value : cell))
+                : row
+        )
+        setTableData(newData)
+        onChange(newData)
+    }
+
+    useEffect(() => {
+        setRowSizes(new Array(tableData.length).fill(100 / tableData.length));
+        setColSizes(new Array(tableData[0].length).fill(100 / tableData[0].length));
+    }, [tableData])
+
     if (isPreview) {
         return (
             <div className="w-full overflow-x-auto text-xs">
@@ -60,25 +87,6 @@ const TableComponent = ({ content, onChange, isPreview, isEditable, initialRowSi
         )
 
     }
-
-    const handleResizeCol = (index: number, newSize: number) => {
-        if (!isEditable) return
-        const newColSizes = [...colSizes]
-        newColSizes[index] = newSize
-        setColSizes(newColSizes)
-    }
-
-    const updateCell = (rowIndex: number, colIndex: number, value: string) => {
-        if (!isEditable) return
-      
-        const newData = tableData.map((row, rIndex) =>
-          rIndex === rowIndex
-            ? row.map((cell, cIndex) => (cIndex === colIndex ? value : cell))
-            : row
-        )
-        setTableData(newData)
-      }
-
 
     return (
         <div className="h-full w-full relative"
@@ -123,7 +131,13 @@ const TableComponent = ({ content, onChange, isPreview, isEditable, initialRowSi
                                                     updateCell(rowIndex, colIndex, e.target.
                                                         value)
                                                 }
-                                            />
+                                                className="w-full h-full p-4 bg-transparent
+                                                focus:outline-none focus:ring-2
+                                                focus:ring-blue-500 rounded-md"
+                                                style={{ color: currentTheme.fontColor }}
+                                                placeholder="Type here"
+                                                readOnly={!isEditable}
+                                            ></input>
                                         </div>
                                     </ResizablePanel>
                                 </React.Fragment>
