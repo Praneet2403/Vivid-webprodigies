@@ -70,10 +70,14 @@ const Navbar = ({ presentationId }: Props) => {
           <span className="hidden sm:inline">Present</span>
         </Button>
       </div>
-      {/* WIP: add a button to toggle between edit and presentation mode */}
-      {/* isPresentationMode && <PresentationMode /> */}
+
+
+
+      {isPresentationMode && (<PresentationMode 
+        onClose={() => setIsPresentationMode(false)}
+      />)}
     </nav>
-  );
+  ); 
 };
 
 export default Navbar;

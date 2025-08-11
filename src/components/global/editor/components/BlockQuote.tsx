@@ -1,4 +1,5 @@
 'use client'
+import { cn } from '@/lib/utils';
 import { useSlideStore } from '@/store/useSlideStore';
 import React from 'react';
 

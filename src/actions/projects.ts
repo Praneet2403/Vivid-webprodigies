@@ -3,6 +3,7 @@
 import { client } from "@/lib/prisma";
 import { onAuthenticateUser } from "./user";
 import { OutlineCard } from "@/lib/types";
+import { JsonValue } from "@prisma/client/runtime/library";
 
 export const getAllProjects = async () => {
   try {
@@ -154,6 +155,58 @@ export const getProjectById = async (projectId: string) => {
     }
 
     return { status: 200, data: project };
+  } catch (error) {
+    console.error("🔴 ERROR", error);
+    return { status: 500, error: "Internal server error" };
+  }
+};
+
+
+export const updateSlides = async (
+  projectId :string,
+  slides: JsonValue
+) => {
+  try {
+    if(!projectId || !slides) {
+      return {status : 400 , error : 'Project ID and slides are required'}
+    }
+    const updatedProject = await client.project.update({
+      where : {
+        id: projectId,
+      },
+      data: {
+        slides,
+      }
+    })
+    if(!updatedProject) {
+      return {status : 500 , error : 'Failed to update slides'}
+    }
+    return {status : 200 , data : updatedProject}
+  } catch (error) {
+    console.error("🔴 ERROR", error);
+    return { status: 500, error: "Internal server error" };
+  }
+}
+
+export const updateTheme = async (projectID: string, theme: string) => {
+  try {
+    if (!projectID || !theme) {
+      return { status: 400, error: 'Project ID and slides are required.' };
+    }
+
+    const updatedProject = await client.project.update({
+      where: {
+        id: projectID,
+      },
+      data: {
+        themeName: theme,
+      },
+    });
+
+    if(!updatedProject) {
+      return {status : 500 , error : 'Failed to update theme'}
+    }
+    return {status : 200 , data : updatedProject}
   } catch (error) {
     console.error("🔴 ERROR", error);
     return { status: 500, error: "Internal server error" };
