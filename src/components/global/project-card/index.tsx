@@ -110,11 +110,10 @@ const ProjectCard = ({
         className="relative aspect-[16/10] overflow-hidden rounded-lg cursor-pointer"
         onClick={handleNavigation}
       >
-        {/* <ThumbnailPreview
+        <ThumbnailPreview
           theme={theme}
-          //WIP: add the slide data
-          //   slide={JSON.parse(JSON.stringify(slideData))?.[0]}
-        /> */}
+          slide={JSON.parse(JSON.stringify(slideData))?.[0]}
+        />
       </div>
 
       <div className="w-full">

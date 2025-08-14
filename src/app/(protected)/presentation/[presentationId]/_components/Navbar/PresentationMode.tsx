@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useSlideStore } from '@/store/useSlideStore';
 import { MasterRecursiveComponent } from '../editor/MasterRecursiveComponent';
@@ -19,13 +19,35 @@ const PresentationMode = ({ onClose }: Props) => {
     };
     const goToNextSlide = () => {
         if(currentSlideIndex === slides.length - 1) {
-            onClose
+            onClose()
         } else {
 
             setCurrentSlideIndex((prev) => Math.min(slides.length - 1, prev + 1));
         }
     };
     const isLastSlide = currentSlideIndex === slides.length - 1;
+
+
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+          if (e.key === 'ArrowRight' || e.key === ' ') {
+            if (currentSlideIndex === slides.length - 1) {
+                onClose()
+            } else {
+                setCurrentSlideIndex((prev) => Math.min(slides.length - 1, prev + 1));
+            }
+          }
+          else if(e.key === 'ArrowLeft') {
+            setCurrentSlideIndex((prev) => Math.max(0, prev - 1));
+          } else if(e.key === 'Escape') {
+            onClose()
+          }
+        }
+      
+        window.addEventListener('keydown', handleKeyDown)
+      
+        return () => window.removeEventListener('keydown', handleKeyDown)
+      }, [slides.length, currentSlideIndex])
     return (
         <div className="fixed inset-0 bg-black flex items-center justify-center z-50">
             <div
