@@ -45,7 +45,7 @@ const ThemeChooser = () => {
             <div className="flex flex-col space-y-4">
                 {themes.map((theme) => (
                     <Button
-                        onClick={() => handeThemeChange(theme)}
+                        onClick={() => handleThemeChange(theme)}
                         key={theme.name}
                         variant={currentTheme.name === theme.name ? 'default' : 'outline'}
                         className="flex flex-col items-center justify-start px-4 w-full h-auto"
