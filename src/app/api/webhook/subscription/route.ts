@@ -18,7 +18,8 @@ export async function POST(req: NextRequest) {
         'sha256',
         process.env.LEMON_SQUEEZY_WEBHOOK_SECRET!
       )
-  
+      
+      //hash
       const digest = Buffer.from(hmac.update(rawBody).digest('hex'),'utf8')
 
       const signature = Buffer.from(req.headers.get('X-Signature') || '', 'utf8')
@@ -51,3 +52,5 @@ export async function POST(req: NextRequest) {
         return Response.json({message: 'Internal server error'}, {status: 500})
     }
   }
+
+  
