@@ -7,6 +7,7 @@ import {ClerkProvider} from "@clerk/nextjs";
 import { dark } from "@clerk/themes";
 import { Toaster } from "sonner";
 
+//fonts
 const geistSans = localFont({
   src: "./fonts/GeistVF.woff",
   variable: "--font-geist-sans",
@@ -18,9 +19,11 @@ const geistMono = localFont({
   weight: "100 900",
 });
 
+//seo
 export const metadata: Metadata = {
   title: "Vivid - AI PPT Generator",
   description: "Build AI powered presentations.",
+  // keywords:"apple"
 };
 
 export default function RootLayout({
