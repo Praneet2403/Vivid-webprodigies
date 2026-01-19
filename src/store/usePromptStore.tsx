@@ -1,4 +1,4 @@
-import { OutLineCard } from "@/lib/types";
+import { OutlineCard } from "@/lib/types";
 import { create } from "zustand";
 import { persist, devtools } from "zustand/middleware";
 type page = "create" | "creative-ai" | "create-scratch";
@@ -6,7 +6,8 @@ type Prompt = {
   id : string,
   createdAt : string,
   title : string,
-  outlines: OutLineCard[] | []
+  
+  outlines: OutlineCard[] | []
 }
 type PromptStore = {
   page: page;

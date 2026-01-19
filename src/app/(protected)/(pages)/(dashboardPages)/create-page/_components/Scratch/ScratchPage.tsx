@@ -26,7 +26,7 @@ type Props = {
 const ScratchPage = ({ onBack }: Props) => {
   const router = useRouter();
 //   const { setProject } = useScratchStore();
-  const { outlines, resetOutlines, addOutline, addMultipleOutlines, setProject } =
+  const { outlines, resetOutlines, addOutline, addMultipleOutlines } =
     useScratchStore();
   const [editText, setEditText] = useState("");
   const [editingCard, setEditingCard] = useState<string | null>(null);
@@ -69,7 +69,7 @@ const ScratchPage = ({ onBack }: Props) => {
     }
 
     if(res.data) {
-        setProject(res.data);
+        // setProject(res.data);
         resetOutlines()
         toast.success('success', {
             description: 'Project created successfully!'

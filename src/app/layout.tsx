@@ -2,10 +2,8 @@ import type { Metadata } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
 import { ThemeProvider } from "@/provider/theme-provider";
-// import { Toaster } from "@/components/ui/sonner";
-import {ClerkProvider} from "@clerk/nextjs";
-import { dark } from "@clerk/themes";
-import { Toaster } from "sonner";
+import { ClerkProviderWrapper } from "@/provider/clerk-provider";
+import { Toaster } from "@/components/ui/sonner";
 
 //fonts
 const geistSans = localFont({
@@ -23,7 +21,6 @@ const geistMono = localFont({
 export const metadata: Metadata = {
   title: "Vivid - AI PPT Generator",
   description: "Build AI powered presentations.",
-  // keywords:"apple"
 };
 
 export default function RootLayout({
@@ -32,21 +29,19 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <ClerkProvider appearance={{
-      baseTheme: dark,
-    }}>
     <html lang="en" suppressHydrationWarning>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
         suppressHydrationWarning
       >
-        <ThemeProvider attribute={"class"} defaultTheme="dark" enableSystem disableTransitionOnChange>
-
-        {children}
-        <Toaster />
-        </ThemeProvider>
+        <ClerkProviderWrapper>
+          <ThemeProvider attribute={"class"} defaultTheme="dark" enableSystem disableTransitionOnChange>
+            {children}
+            <Toaster />
+          </ThemeProvider>
+        </ClerkProviderWrapper>
       </body>
     </html>
-    </ClerkProvider>
   );
 }
+
