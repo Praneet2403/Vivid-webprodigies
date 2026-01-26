@@ -21,6 +21,7 @@ const geistMono = localFont({
 export const metadata: Metadata = {
   title: "Vivid - AI PPT Generator",
   description: "Build AI powered presentations.",
+  // keywords:"apple"
 };
 
 export default function RootLayout({
