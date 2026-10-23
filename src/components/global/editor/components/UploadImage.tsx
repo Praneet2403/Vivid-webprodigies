@@ -20,7 +20,7 @@ const UploadImage = ({ contentId, onContentChange }: Props) => {
             <FileUploaderRegular
                 sourceList="local, url, dropbox"
                 classNameUploader="uc-light"
-                pubkey={process.env.UPLOADCARE_PUBLIC_KEY!}
+                pubkey={process.env.NEXT_PUBLIC_UPLOADCARE_PUBLIC_KEY!}
                 multiple={false}
                 onFileUploadSuccess={handleChangeEvent}
                 maxLocalFileSizeBytes={10000000}

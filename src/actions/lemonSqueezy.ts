@@ -11,7 +11,8 @@ export const buySubscription = async (buyUserId: string) => {
           attributes: {
             checkout_data: {
               custom: {
-                buyUserId: buyUserId,
+                // Must match the key the subscription webhook reads
+                buyerUserId: buyUserId,
               },
             },
             product_options: {

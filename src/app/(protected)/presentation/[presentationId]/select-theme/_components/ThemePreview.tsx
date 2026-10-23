@@ -1,6 +1,6 @@
 "use client";
 import { useSlideStore } from "@/store/useSlideStore";
-import { redirect, useParams, useRouter } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import React, { useEffect, useState } from "react";
 import { useAnimation } from "framer-motion";
 import { Theme } from "@/lib/types";
@@ -19,10 +19,10 @@ const ThemePreview = (props: Props) => {
   const { currentTheme, setCurrentTheme, project } = useSlideStore();
   const [selectedTheme, setSelectedTheme] = useState<Theme>(currentTheme);
   useEffect(() => {
-    if (project?.slides) {
-      redirect(`/presentation/${params.presentationId}`);
+    if (project?.id === params.presentationId && project?.slides) {
+      router.replace(`/presentation/${params.presentationId}`);
     }
-  }, [project]);
+  }, [project, params.presentationId, router]);
   useEffect(() => {
     controls.start("visible");
   }, [controls, selectedTheme]);
@@ -53,7 +53,7 @@ const ThemePreview = (props: Props) => {
         className="w-full h-12 text-lg font-medium"
         style={{
           backgroundColor: selectedTheme.accentColor,
-          color: selectedTheme.accentColor,
+          color: selectedTheme.backgroundColor,
         }}
       >
         Get Started

@@ -69,43 +69,52 @@ const CreateAI = (props: Props) => {
       return;
     }
     setIsGenerating(true);
-    const res = await generateCreativePrompt(currentAiPrompt);
+    try {
+      const res = await generateCreativePrompt(currentAiPrompt);
 
-    if (res.status === 200 && res?.data?.outlines) {
-      const cardsData: OutlineCard[] = [];
-      res.data?.outlines.map((outline: string, idx: number) => {
-        const newCard = {
-          id: v4(),
-          title: outline,
-          order: idx + 1,
-        };
-        cardsData.push(newCard);
-      });
-      addMultipleOutlines(cardsData);
-      setNoOfCards(cardsData.length);
-      toast.success("Success", {
-        description: "Outline generated successfully!",
-      });
-    } else {
+      if (res.status === 200 && res?.data?.outlines) {
+        const cardsData: OutlineCard[] = [];
+        res.data?.outlines.map((outline: string, idx: number) => {
+          const newCard = {
+            id: v4(),
+            title: outline,
+            order: idx + 1,
+          };
+          cardsData.push(newCard);
+        });
+        addMultipleOutlines(cardsData);
+        setNoOfCards(cardsData.length);
+        toast.success("Success", {
+          description: "Outline generated successfully!",
+        });
+      } else {
+        toast.error("Error", {
+          description: "Failed to generate outline.",
+        });
+      }
+    } catch {
       toast.error("Error", {
         description: "Failed to generate outline.",
       });
+    } finally {
+      setIsGenerating(false);
     }
-    setIsGenerating(false);
   };
 
   const handleGenerate = async () => {
-    setIsGenerating(true);
     if (outlines.length === 0) {
       toast.error("Error", {
         description: "Please add at least one card before generating.",
       });
       return;
     }
+    setIsGenerating(true);
     try {
+      // Outlines restored from a recent prompt have no prompt text, so fall back to the first card
+      const title = currentAiPrompt.trim() || outlines[0]?.title || "Untitled";
       const res = await createProject(
-        currentAiPrompt,
-        outlines.slice(0, noOfCards)
+        title,
+        outlines.slice(0, noOfCards || outlines.length)
       );
       if (res.status !== 200 || !res.data) {
         throw new Error("Unable to create project");
@@ -116,19 +125,19 @@ const CreateAI = (props: Props) => {
 
       addPrompt({
         id: v4(),
-        title: currentAiPrompt || outlines?.[0]?.title,
+        title,
         outlines: outlines,
         createdAt: new Date().toISOString(),
       });
 
-      toast.success("Succes", {
+      toast.success("Success", {
         description: "Project created successfully!",
       });
 
       setCurrentAiPrompt("");
       resetOutlines();
     } catch (error) {
-      console.log(error);
+      console.error(error);
       toast.error("Error", {
         description: "Failed to create project.",
       });

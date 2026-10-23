@@ -16,7 +16,9 @@ const icons = {
     caution: AlertCircle,
 };
 
-const CalloutBox = ({ type, children, className }: Props) => {
+const CalloutBox = ({ type: requestedType, children, className }: Props) => {
+    // Saved or AI-generated slides can carry an unknown type, which would crash on the icon lookup
+    const type = requestedType in icons ? requestedType : 'info';
     const Icon = icons[type];
     const colors = {
         success: {

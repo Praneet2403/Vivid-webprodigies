@@ -66,6 +66,7 @@ const ContentRenderer: React.FC<MasterRecursiveComponentProps> = React.memo(
         </motion.div>
         )
       case 'paragraph':
+      case 'text':
         return (<motion.div className="w-full h-full" {...animationProps}>
           <Paragraph {...commonProps} />
         </motion.div>
@@ -80,8 +81,8 @@ const ContentRenderer: React.FC<MasterRecursiveComponentProps> = React.memo(
                 newContent !== null ? newContent : ''
               )
             }
-            initialRowSize={content.initialColumns}
-            initialColSize={content.initialRows}
+            initialRowSize={content.initialRows ?? 2}
+            initialColSize={content.initialColumns ?? 2}
             isPreview={isPreview}
             isEditable={isEditable}
           />
@@ -120,6 +121,7 @@ const ContentRenderer: React.FC<MasterRecursiveComponentProps> = React.memo(
         );
 
       case 'blockquote':
+      case 'quote':
         return (
           <motion.div
             {...animationProps}
@@ -143,6 +145,7 @@ const ContentRenderer: React.FC<MasterRecursiveComponentProps> = React.memo(
         );
 
       case 'bulletList':
+      case 'bulletedList':
         return (
           <motion.div {...animationProps} className="w-full h-full">
             <BulletList
@@ -168,7 +171,7 @@ const ContentRenderer: React.FC<MasterRecursiveComponentProps> = React.memo(
         return (
           <motion.div {...animationProps} className="w-full h-full">
             <CalloutBox
-              type={(content.type as 'success' | 'warning' | 'info' | 'question' | 'caution') || 'info'}
+              type={content.callOutType || 'info'}
               className={content.className}
             >
               <Paragraph {...commonProps} />
@@ -177,12 +180,13 @@ const ContentRenderer: React.FC<MasterRecursiveComponentProps> = React.memo(
         );
 
       case 'codeBlock':
+      case 'code':
         return (
           <motion.div {...animationProps} className="w-full h-full">
             <CodeBlock
-              code={content.code}
+              code={typeof content.content === 'string' && content.content ? content.content : content.code ?? ''}
               language={content.language}
-              onChange={() => { }}
+              onChange={(newCode) => onContentChange(content.id, newCode)}
               className={content.className}
             />
           </motion.div>
@@ -193,11 +197,28 @@ const ContentRenderer: React.FC<MasterRecursiveComponentProps> = React.memo(
           <motion.div {...animationProps} className="w-full h-full">
             <TableOfContents
               items={content.content as string[]}
-              onItemClick={(id) => {
-                console.log(`Maps to section: ${id}`);
-              }}
+              onItemClick={() => {}}
               className={content.className}
             />
+          </motion.div>
+        );
+
+      case 'customButton':
+      case 'link':
+        return (
+          <motion.div {...animationProps} className="w-full h-full">
+            <a
+              href={isEditable ? undefined : content.link || '#'}
+              className={cn(
+                'inline-block rounded-lg px-6 py-3 font-medium',
+                content.className
+              )}
+              style={{ backgroundColor: content.bgColor, color: 'inherit' }}
+            >
+              {typeof content.content === 'string' && content.content
+                ? content.content
+                : content.placeholder || content.name}
+            </a>
           </motion.div>
         );
 
@@ -235,7 +256,7 @@ const ContentRenderer: React.FC<MasterRecursiveComponentProps> = React.memo(
                         isEditable={isEditable}
                       />
                       {!isPreview &&
-                        subItem.restrictToDrop &&
+                        !subItem.restrictToDrop &&
                         isEditable && <DropZone index={subIndex + 1} parentId={content.id} slideId={slideId} />}
                     </React.Fragment>
                   )

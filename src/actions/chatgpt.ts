@@ -5,6 +5,12 @@ import { ContentItem, ContentType, Slide } from "@/lib/types";
 import { currentUser } from "@clerk/nextjs/server";
 import Groq from "groq-sdk";
 import { v4 as uuidv4 } from "uuid";
+import * as slideComponents from "@/lib/slideComponents";
+import * as slideLayouts from "@/lib/slideLayouts";
+import { getPrefixedCdnBaseSync } from "@uploadcare/cname-prefix/sync";
+
+// Groq retires models over time (llama-3.3-70b-versatile is gone), so allow an override
+const GROQ_MODEL = process.env.GROQ_MODEL || "openai/gpt-oss-120b";
 
 export const generateCreativePrompt = async (userPrompt: string) => {
   const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
@@ -35,7 +41,8 @@ Ensure that the JSON is valid and properly formatted. Do not include any other t
           content: finalPrompt,
         },
       ],
-      model: "llama-3.3-70b-versatile",
+      model: GROQ_MODEL,
+      response_format: { type: "json_object" },
     });
 
     const responseContent = completion.choices[0]?.message?.content;
@@ -472,75 +479,150 @@ const existingLayouts = [
   },
 ];
 
-const generateImageUrl = async (prompt: string): Promise<string> => {
-  try {
-    // Use Replicate AI for image generation
-    const response = await fetch("https://api.replicate.com/v1/predictions", {
+const REPLICATE_API = "https://api.replicate.com/v1/predictions";
+// stability-ai/sdxl
+const REPLICATE_MODEL_VERSION =
+  "39ed52f2a78e934b3ba6e2a89f5b1c712de7dfea535525255b1aa35c5565e08b";
+const IMAGE_TIMEOUT_MS = 120_000;
+const IMAGE_CONCURRENCY = 2;
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const placeholderImageUrl = (prompt: string) =>
+  `https://placehold.co/1024x1024/4F46E5/FFFFFF.png?text=${encodeURIComponent(
+    prompt.slice(0, 60)
+  )}`;
+
+const createPrediction = async (prompt: string) => {
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const response = await fetch(REPLICATE_API, {
       method: "POST",
       headers: {
-        "Authorization": `Token ${process.env.REPLICATE_API_TOKEN}`,
+        Authorization: `Bearer ${process.env.REPLICATE_API_TOKEN}`,
         "Content-Type": "application/json",
+        // Ask Replicate to hold the request open until the image is ready (up to 60s)
+        Prefer: "wait=60",
       },
       body: JSON.stringify({
-        version: "39ed52f2a78e934b3ba6e2a89f5b1c712de7dfea535525255b1aa35c5565e08b",
+        version: REPLICATE_MODEL_VERSION,
         input: {
           prompt: `Professional presentation image: ${prompt}. High quality, realistic, suitable for business presentations.`,
           width: 1024,
           height: 1024,
           num_outputs: 1,
           scheduler: "K_EULER",
-          num_inference_steps: 50,
+          num_inference_steps: 30,
           guidance_scale: 7.5,
         },
       }),
     });
 
+    // Low-credit Replicate accounts are limited to a few predictions per minute
+    if (response.status === 429) {
+      const body = await response.json().catch(() => ({}));
+      const retryAfter = Number(
+        body?.retry_after ?? response.headers.get("retry-after") ?? 10
+      );
+      await sleep(Math.max(1, retryAfter) * 1000);
+      continue;
+    }
+
     if (!response.ok) {
-      throw new Error(`Replicate API error: ${response.status}`);
+      const detail = await response.text().catch(() => "");
+      throw new Error(`Replicate API error ${response.status}: ${detail}`);
     }
 
-    const prediction = await response.json();
-    console.log("🟢 Image generation started:", prediction.id);
+    return response.json();
+  }
+  throw new Error("Replicate rate limit: gave up after 5 attempts");
+};
 
-    // Poll for completion
-    let result = null;
-    let attempts = 0;
-    const maxAttempts = 30; // 30 seconds timeout
+const waitForPrediction = async (prediction: {
+  id: string;
+  status: string;
+  output?: string[] | string;
+}) => {
+  const deadline = Date.now() + IMAGE_TIMEOUT_MS;
+  let current = prediction;
 
-    while (attempts < maxAttempts) {
-      await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second
-      
-      const statusResponse = await fetch(`https://api.replicate.com/v1/predictions/${prediction.id}`, {
-        headers: {
-          "Authorization": `Token ${process.env.REPLICATE_API_TOKEN}`,
-        },
-      });
+  while (Date.now() < deadline) {
+    if (current.status === "succeeded") {
+      return Array.isArray(current.output) ? current.output[0] : current.output;
+    }
+    if (current.status === "failed" || current.status === "canceled") {
+      throw new Error(`Image generation ${current.status}`);
+    }
 
-      if (statusResponse.ok) {
-        const statusData = await statusResponse.json();
-        
-        if (statusData.status === "succeeded") {
-          result = statusData.output[0];
-          break;
-        } else if (statusData.status === "failed") {
-          throw new Error("Image generation failed");
-        }
+    await sleep(2000);
+    const statusResponse = await fetch(`${REPLICATE_API}/${current.id}`, {
+      headers: { Authorization: `Bearer ${process.env.REPLICATE_API_TOKEN}` },
+    });
+    if (statusResponse.ok) {
+      current = await statusResponse.json();
+    }
+  }
+  throw new Error("Image generation timed out");
+};
+
+// Replicate deletes its output files after about an hour, so copy each image to Uploadcare
+const persistImage = async (sourceUrl: string): Promise<string> => {
+  const pubKey =
+    process.env.UPLOADCARE_PUBLIC_KEY ||
+    process.env.NEXT_PUBLIC_UPLOADCARE_PUBLIC_KEY;
+  if (!pubKey) return sourceUrl;
+
+  try {
+    const form = new FormData();
+    form.append("pub_key", pubKey);
+    form.append("source_url", sourceUrl);
+    form.append("store", "1");
+    const uploadResponse = await fetch("https://upload.uploadcare.com/from_url/", {
+      method: "POST",
+      body: form,
+    });
+    if (!uploadResponse.ok) {
+      throw new Error(`Uploadcare error ${uploadResponse.status}`);
+    }
+    const upload = await uploadResponse.json();
+    // Newer Uploadcare projects serve files from a per-project subdomain of ucarecd.net
+    const cdnBase = getPrefixedCdnBaseSync(pubKey, "https://ucarecd.net");
+    if (upload.uuid) return `${cdnBase}/${upload.uuid}/`;
+
+    const deadline = Date.now() + 30_000;
+    while (Date.now() < deadline) {
+      await sleep(1000);
+      const statusResponse = await fetch(
+        `https://upload.uploadcare.com/from_url/status/?token=${upload.token}`
+      );
+      const status = await statusResponse.json();
+      if (status.status === "success" && status.uuid) {
+        return `${cdnBase}/${status.uuid}/`;
       }
-      
-      attempts++;
+      if (status.status === "error") {
+        throw new Error(status.error || "Uploadcare upload failed");
+      }
     }
-
-    if (result) {
-      console.log("🟢 Image generated successfully:", result);
-      return result;
-    } else {
-      throw new Error("Image generation timed out");
-    }
-
+    throw new Error("Uploadcare upload timed out");
   } catch (error) {
-    console.error("Error generating image:", error);
-    // Fallback to placeholder image
-    return `https://via.placeholder.com/1024x1024/4F46E5/FFFFFF?text=${encodeURIComponent(prompt)}`;
+    console.error("🔴 Could not store image on Uploadcare:", error);
+    return sourceUrl;
+  }
+};
+
+const generateImageUrl = async (prompt: string): Promise<string> => {
+  if (!process.env.REPLICATE_API_TOKEN) {
+    return placeholderImageUrl(prompt);
+  }
+  try {
+    const prediction = await createPrediction(prompt);
+    const imageUrl = await waitForPrediction(prediction);
+    if (!imageUrl) {
+      throw new Error("Replicate returned no image");
+    }
+    return await persistImage(imageUrl);
+  } catch (error) {
+    console.error("🔴 Error generating image:", error);
+    return placeholderImageUrl(prompt);
   }
 };
 
@@ -551,23 +633,236 @@ const findImageComponents = (layout: ContentItem): ContentItem[] => {
   }
   if (Array.isArray(layout.content)) {
     layout.content.forEach((child) => {
-      images.push(...findImageComponents(child as ContentItem));
+      if (child && typeof child === "object" && !Array.isArray(child)) {
+        images.push(...findImageComponents(child as ContentItem));
+      }
     });
-  } else if (layout.content && typeof layout.content === "object") {
-    images.push(...findImageComponents(layout.content));
   }
   return images;
 };
 
-const replaceImagePlaceholders = async (layout: Slide) => {
-  const imageComponents = findImageComponents(layout.content);
-  console.log("🟢 Found image components:", imageComponents);
-  for (const component of imageComponents) {
-    console.log("🟢 Generating image for component:", component.alt);
-    component.content = await generateImageUrl(
-      component.alt || "Placeholder Image"
+const replaceImagePlaceholders = async (slides: Slide[]) => {
+  const jobs = slides.flatMap((slide) =>
+    findImageComponents(slide.content).map((component) => ({
+      component,
+      prompt: component.alt || slide.slideName || "Business presentation",
+    }))
+  );
+
+  // A small worker pool keeps us under Replicate's rate limit
+  let next = 0;
+  const worker = async () => {
+    while (next < jobs.length) {
+      const job = jobs[next++];
+      job.component.content = await generateImageUrl(job.prompt);
+    }
+  };
+  await Promise.all(
+    Array.from({ length: Math.min(IMAGE_CONCURRENCY, jobs.length) }, worker)
+  );
+};
+
+const RENDERABLE_TYPES = new Set<ContentType>([
+  "column",
+  "resizable-column",
+  "title",
+  "heading1",
+  "heading2",
+  "heading3",
+  "heading4",
+  "paragraph",
+  "image",
+  "table",
+  "blockquote",
+  "numberedList",
+  "bulletList",
+  "todoList",
+  "calloutBox",
+  "codeBlock",
+  "tableOfContents",
+  "customButton",
+  "divider",
+]);
+
+const TYPE_ALIASES: Record<string, ContentType> = {
+  text: "paragraph",
+  quote: "blockquote",
+  bulletedList: "bulletList",
+  list: "bulletList",
+  heading: "heading2",
+  subtitle: "heading3",
+  code: "codeBlock",
+  link: "customButton",
+  button: "customButton",
+  multiColumn: "resizable-column",
+};
+
+const CONTAINER_TYPES = new Set<ContentType>(["column", "resizable-column"]);
+const LIST_TYPES = new Set<ContentType>([
+  "numberedList",
+  "bulletList",
+  "todoList",
+  "tableOfContents",
+]);
+const CALLOUT_TYPES = ["success", "warning", "info", "question", "caution"];
+
+// Tailwind only ships classes it finds in our source, so the AI may only use classes we already use
+const collectClassNames = (value: unknown, classes: Set<string>) => {
+  if (Array.isArray(value)) {
+    value.forEach((child) => collectClassNames(child, classes));
+  } else if (value && typeof value === "object") {
+    const item = value as Record<string, unknown>;
+    if (typeof item.className === "string") {
+      item.className.split(/\s+/).filter(Boolean).forEach((c) => classes.add(c));
+    }
+    Object.values(item).forEach((child) => collectClassNames(child, classes));
+  }
+};
+const KNOWN_CLASSES = new Set<string>();
+collectClassNames(
+  [existingLayouts, Object.values(slideLayouts), Object.values(slideComponents)],
+  KNOWN_CLASSES
+);
+
+const sanitizeClassName = (value: unknown) =>
+  typeof value === "string"
+    ? value
+        .split(/\s+/)
+        .filter((c) => KNOWN_CLASSES.has(c))
+        .join(" ") || undefined
+    : undefined;
+
+const asText = (value: unknown): string => {
+  if (typeof value === "string") return value;
+  if (Array.isArray(value)) return value.map(asText).join(" ");
+  if (value === null || value === undefined) return "";
+  return String(value);
+};
+
+const normalizeContentItem = (raw: unknown): ContentItem | null => {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  const item = raw as Record<string, unknown>;
+  const rawType = String(item.type ?? "");
+  let type = (TYPE_ALIASES[rawType] ?? rawType) as ContentType;
+
+  if (!RENDERABLE_TYPES.has(type)) {
+    // Unknown wrappers with children are still useful as a plain column
+    if (Array.isArray(item.content)) type = "column";
+    else return null;
+  }
+
+  const normalized: ContentItem = {
+    id: uuidv4(),
+    type,
+    name: typeof item.name === "string" && item.name ? item.name : type,
+    content: "",
+  };
+  if (typeof item.placeholder === "string") normalized.placeholder = item.placeholder;
+  const className = sanitizeClassName(item.className);
+  if (className) normalized.className = className;
+  if (item.restrictToDrop === true) normalized.restrictToDrop = true;
+
+  if (CONTAINER_TYPES.has(type)) {
+    const children = Array.isArray(item.content) ? item.content : [item.content];
+    normalized.content = children
+      .map(normalizeContentItem)
+      .filter((child): child is ContentItem => child !== null);
+  } else if (LIST_TYPES.has(type)) {
+    normalized.content = Array.isArray(item.content)
+      ? item.content.map(asText)
+      : asText(item.content).split("\n").filter(Boolean);
+  } else if (type === "table") {
+    const rows = Array.isArray(item.content)
+      ? item.content.map((row) => (Array.isArray(row) ? row.map(asText) : [asText(row)]))
+      : [];
+    // The table editor assumes every row has the same number of cells
+    const width = Math.max(0, ...rows.map((row) => row.length));
+    normalized.content = rows.map((row) => [
+      ...row,
+      ...Array<string>(width - row.length).fill(""),
+    ]);
+    normalized.initialRows =
+      typeof item.initialRows === "number" ? item.initialRows : 2;
+    normalized.initialColumns =
+      typeof item.initialColumns === "number" ? item.initialColumns : 2;
+  } else if (type === "image") {
+    // The URL is filled in by image generation
+    normalized.content = "";
+    normalized.alt = asText(item.alt) || normalized.name;
+  } else if (type === "divider") {
+    normalized.content = "";
+  } else {
+    normalized.content = asText(item.content);
+  }
+
+  if (type === "calloutBox") {
+    normalized.callOutType = CALLOUT_TYPES.includes(String(item.callOutType))
+      ? (item.callOutType as ContentItem["callOutType"])
+      : "info";
+  }
+  if (type === "codeBlock") {
+    normalized.code = asText(item.code ?? item.content);
+    normalized.content = normalized.code;
+    normalized.language =
+      typeof item.language === "string" ? item.language : "javascript";
+  }
+  if (type === "customButton") {
+    if (typeof item.link === "string") normalized.link = item.link;
+    if (typeof item.bgColor === "string") normalized.bgColor = item.bgColor;
+  }
+
+  return normalized;
+};
+
+const extractSlideArray = (parsed: unknown): unknown[] => {
+  if (Array.isArray(parsed)) return parsed;
+  if (parsed && typeof parsed === "object") {
+    const record = parsed as Record<string, unknown>;
+    for (const key of ["slides", "layouts", "presentation"]) {
+      if (Array.isArray(record[key])) return record[key] as unknown[];
+    }
+    const firstArray = Object.values(record).find(Array.isArray);
+    if (firstArray) return firstArray;
+    if ("content" in record) return [record];
+  }
+  return [];
+};
+
+const normalizeSlides = (parsed: unknown): Slide[] =>
+  extractSlideArray(parsed)
+    .map((raw, index): Slide | null => {
+      if (!raw || typeof raw !== "object") return null;
+      const slide = raw as Record<string, unknown>;
+      let content = normalizeContentItem(slide.content);
+      if (!content) return null;
+      // The editor expects every slide to start with a column
+      if (content.type !== "column") {
+        content = { id: uuidv4(), type: "column", name: "Column", content: [content] };
+      }
+      return {
+        id: uuidv4(),
+        slideName:
+          typeof slide.slideName === "string" ? slide.slideName : `Slide ${index + 1}`,
+        type: typeof slide.type === "string" ? slide.type : "blank-card",
+        className: sanitizeClassName(slide.className),
+        slideOrder: index,
+        content,
+      };
+    })
+    .filter((slide): slide is Slide => slide !== null)
+    .map((slide, index) => ({ ...slide, slideOrder: index }));
+
+// Example layouts without ids keep the prompt small; ids are regenerated anyway
+const stripIds = (value: unknown): unknown => {
+  if (Array.isArray(value)) return value.map(stripIds);
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value)
+        .filter(([key]) => key !== "id")
+        .map(([key, child]) => [key, stripIds(child)])
     );
   }
+  return value;
 };
 
 export const generateLayoutsJson = async (outlineArray: string[]) => {
@@ -583,31 +878,23 @@ unique designs based on the provided outline.
 
 ### Guidelines:
 1. Write layouts based on the specific outline
-   provided.
+   provided, one slide per outline entry, in order.
 2. Use diverse and engaging designs, ensuring
    each layout is unique.
-3. Adhere to the structure of existing layouts
-   but add new styles or components if needed.
-4. Fill placeholder data into content fields
-   where required.
-5. Generate unique image placeholders for the
-   'content' property of image components and also
-   alt text according to the outline.
-6. Ensure proper formatting and schema alignment
-   for the output JSON.
+3. Follow the structure of the example layouts exactly.
+   Only use these component types: ${[...RENDERABLE_TYPES].join(", ")}.
+4. Only use className values that appear in the examples.
+5. Fill real text into the "content" fields of text components.
+6. For image components, leave "content" as an empty string and
+   write a descriptive "alt" text according to the outline.
+7. Do not include "id" fields.
 
-
-   ### Example Layouts:
-${JSON.stringify(existingLayouts, null, 2)}
+### Example Layouts:
+${JSON.stringify(stripIds(existingLayouts))}
 
 ### Outline Array:
 ${JSON.stringify(outlineArray)}
 
-For each entry in the outline array, generate:
-- A unique JSON layout with creative designs.
-- Properly filled content, including
-  placeholders for image components.
-- Clear and well-structured JSON data.
 For Images
 - The alt text should describe the image clearly
   and concisely.
@@ -621,59 +908,45 @@ For Images
   of," and instead focus directly on the content
   and meaning.
 
-Output the layouts in JSON format. Ensure there
-are no duplicate layouts across the array.
+Return only a JSON object of the form {"slides": [ ...one layout per outline... ]}.
+Ensure there are no duplicate layouts across the array.
 `;
   try {
-    console.log("🟢 Generating layouts...");
-    const completion = await groq.chat.completions.create({
-      model: "llama-3.3-70b-versatile",
-      messages: [
-        {
-          role: "system",
-          content: "You generate JSON layouts for presentations.",
-        },
-        { role: "user", content: prompt },
-      ],
-      max_tokens: 5000,
-      temperature: 0.7,
-    });
+    let slides: Slide[] = [];
+    // JSON mode occasionally fails validation on long outputs, so allow a couple of retries
+    for (let attempt = 0; attempt < 3 && slides.length === 0; attempt++) {
+      try {
+        const completion = await groq.chat.completions.create({
+          model: GROQ_MODEL,
+          messages: [
+            {
+              role: "system",
+              content: "You generate JSON layouts for presentations.",
+            },
+            { role: "user", content: prompt },
+          ],
+          response_format: { type: "json_object" },
+          max_tokens: 8000,
+          temperature: 0.7,
+        });
 
-    const responseContent = completion?.choices?.[0]?.message?.content;
-
-    if (!responseContent) {
-      return { status: 400, error: "No content generated" };
-    }
-
-    let jsonResponse;
-    try {
-      // Clean up the response content more thoroughly
-      let cleanedContent = responseContent.trim();
-      
-      // Remove markdown code blocks
-      cleanedContent = cleanedContent.replace(/```json\s*/g, "");
-      cleanedContent = cleanedContent.replace(/```\s*/g, "");
-      
-      // Remove any leading/trailing whitespace and newlines
-      cleanedContent = cleanedContent.trim();
-      
-      // Find JSON content between curly braces or square brackets
-      const jsonMatch = cleanedContent.match(/[\[\{][\s\S]*[\]\}]/);
-      if (jsonMatch) {
-        cleanedContent = jsonMatch[0];
+        const responseContent = completion?.choices?.[0]?.message?.content;
+        if (!responseContent) continue;
+        slides = normalizeSlides(JSON.parse(responseContent));
+      } catch (error) {
+        console.error(
+          `🔴 Layout generation attempt ${attempt + 1} failed:`,
+          error instanceof Error ? error.message.slice(0, 200) : error
+        );
       }
-      
-      console.log("🔍 Attempting to parse JSON:", cleanedContent.substring(0, 200) + "...");
-      
-      jsonResponse = JSON.parse(cleanedContent);
-      await Promise.all(jsonResponse.map(replaceImagePlaceholders));
-    } catch (error) {
-      console.log("🔴 JSON PARSE ERROR:", error);
-      console.log("🔴 Raw response content:", responseContent.substring(0, 500) + "...");
-      throw new Error(`Invalid JSON format received from AI: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
-    console.log("🟢 Layouts generated successfully:");
-    return { status: 200, data: jsonResponse };
+
+    if (slides.length === 0) {
+      return { status: 500, error: "The AI did not return any usable slides. Please try again." };
+    }
+
+    await replaceImagePlaceholders(slides);
+    return { status: 200, data: slides };
   } catch (error) {
     console.error("🔴 ERROR", error);
     return { status: 500, error: "Internal server error" };
@@ -694,17 +967,20 @@ export const generateLayouts = async (projectId: string, theme: string) => {
       where: { clerkId: user.id },
     });
 
-    if (!userExist || !userExist.subscription) {
+    if (!userExist) {
+      return { status: 403, error: "User not found in the database." };
+    }
+
+    // Payments are optional; only require a subscription when LemonSqueezy is set up
+    if (process.env.LEMON_SQUEEZY_API_KEY && !userExist.subscription) {
       return {
         status: 403,
-        error: !userExist?.subscription
-          ? "No subscription found."
-          : "user not found in the database",
+        error: "You need an active subscription to generate presentations.",
       };
     }
 
-    const project = await client.project.findUnique({
-      where: { id: projectId, isDeleted: false },
+    const project = await client.project.findFirst({
+      where: { id: projectId, userId: userExist.id, isDeleted: false },
     });
 
     if (!project) {
@@ -717,13 +993,16 @@ export const generateLayouts = async (projectId: string, theme: string) => {
 
     const layouts = await generateLayoutsJson(project.outlines);
 
-    if (layouts.status !== 200) {
-      return layouts;
+    if (layouts.status !== 200 || !layouts.data) {
+      return { status: layouts.status, error: layouts.error };
     }
 
     await client.project.update({
       where: { id: projectId },
-      data: { slides: layouts.data, themeName: theme },
+      data: {
+        slides: JSON.parse(JSON.stringify(layouts.data)),
+        themeName: theme,
+      },
     });
 
     return { status: 200, data: layouts.data };
@@ -732,4 +1011,3 @@ export const generateLayouts = async (projectId: string, theme: string) => {
     return { status: 500, error: "Internal server error" };
   }
 };
-

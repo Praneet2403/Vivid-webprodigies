@@ -14,13 +14,20 @@ type Props = {
 const Navbar = ({ presentationId }: Props) => {
   const { currentTheme } = useSlideStore();
   const [isPresentationMode, setIsPresentationMode] = useState(false);
-  const handleCopy = () => {
-    navigator.clipboard.writeText(
-      `${window.location.origin}/share/${presentationId}`
-    );
-    toast.success("Link copied ", {
-      description: "Link copied to clipboard",
-    });
+  const handleCopy = async () => {
+    // There is no public share view yet, so this copies the editor link (opens for the owner only)
+    try {
+      await navigator.clipboard.writeText(
+        `${window.location.origin}/presentation/${presentationId}`
+      );
+      toast.success("Link copied ", {
+        description: "Link copied to clipboard",
+      });
+    } catch {
+      toast.error("Error", {
+        description: "Could not copy the link",
+      });
+    }
   };
 
   return (
@@ -43,12 +50,9 @@ const Navbar = ({ presentationId }: Props) => {
           <span className="hidden sm:inline">Return Home</span>
         </Button>
       </Link>
-      <Link
-        href="/presentation/template-market"
-        className="text-lg font-semibold hidden sm:block "
-      >
+      <span className="text-lg font-semibold hidden sm:block ">
         Presentation Editor
-      </Link>
+      </span>
 
       <div className="flex items-center gap-4">
         <Button
@@ -57,6 +61,7 @@ const Navbar = ({ presentationId }: Props) => {
           }}
           onClick={handleCopy}
           variant="outline"
+          aria-label="Copy link"
         >
           <Share className="w-4 h-4" />
         </Button>

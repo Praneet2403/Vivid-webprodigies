@@ -8,7 +8,7 @@ import { JsonValue } from "@prisma/client/runtime/library";
 export const getAllProjects = async () => {
   try {
     const checkUser = await onAuthenticateUser();
-    if (checkUser.status !== 200 || !checkUser.user) {
+    if (!checkUser.user) {
       return { status: 403, error: "Unauthorized access" };
     }
 
@@ -36,7 +36,7 @@ export const getAllProjects = async () => {
 export const getRecentProjects = async () => {
   try {
     const checkUser = await onAuthenticateUser();
-    if (checkUser.status !== 200 || !checkUser.user) {
+    if (!checkUser.user) {
       return { status: 403, error: "Unauthorized access" };
     }
     const projects = await client.project.findMany({
@@ -62,8 +62,14 @@ export const getRecentProjects = async () => {
 export const recoverProject = async (projectId: string) => {
   try {
     const checkUser = await onAuthenticateUser();
-    if (checkUser.status !== 200 || !checkUser.user) {
+    if (!checkUser.user) {
       return { status: 403, error: "Unauthorized access" };
+    }
+    const project = await client.project.findFirst({
+      where: { id: projectId, userId: checkUser.user.id },
+    });
+    if (!project) {
+      return { status: 404, error: "Project not found" };
     }
     const updatedProject = await client.project.update({
       where: {
@@ -86,8 +92,14 @@ export const recoverProject = async (projectId: string) => {
 export const deleteProject = async (projectId: string) => {
   try {
     const checkUser = await onAuthenticateUser();
-    if (checkUser.status !== 200 || !checkUser.user) {
+    if (!checkUser.user) {
       return { status: 403, error: "Unauthorized access" };
+    }
+    const project = await client.project.findFirst({
+      where: { id: projectId, userId: checkUser.user.id },
+    });
+    if (!project) {
+      return { status: 404, error: "Project not found" };
     }
     const updatedProject = await client.project.update({
       where: {
@@ -116,7 +128,7 @@ export const createProject = async (title: string, outlines: OutlineCard[]) => {
     const allOutlines = outlines.map((outline) => outline.title);
 
     const checkUser = await onAuthenticateUser();
-    if (checkUser.status !== 200 || !checkUser.user) {
+    if (!checkUser.user) {
       return { status: 403, error: "User not authenticated" };
     }
 
@@ -142,12 +154,19 @@ export const createProject = async (title: string, outlines: OutlineCard[]) => {
 export const getProjectById = async (projectId: string) => {
   try {
     const checkUser = await onAuthenticateUser();
-    if (checkUser.status !== 200 || !checkUser.user) {
+    if (!checkUser.user) {
       return { status: 403, error: "User not authenticated" };
     }
 
     const project = await client.project.findFirst({
-      where: { id: projectId },
+      where: {
+        id: projectId,
+        isDeleted: false,
+        OR: [
+          { userId: checkUser.user.id },
+          { Purchasers: { some: { id: checkUser.user.id } } },
+        ],
+      },
     });
 
     if (!project) {
@@ -170,6 +189,16 @@ export const updateSlides = async (
     if(!projectId || !slides) {
       return {status : 400 , error : 'Project ID and slides are required'}
     }
+    const checkUser = await onAuthenticateUser();
+    if (!checkUser.user) {
+      return { status: 403, error: "User not authenticated" };
+    }
+    const project = await client.project.findFirst({
+      where: { id: projectId, userId: checkUser.user.id },
+    });
+    if (!project) {
+      return { status: 404, error: "Project not found" };
+    }
     const updatedProject = await client.project.update({
       where : {
         id: projectId,
@@ -191,7 +220,17 @@ export const updateSlides = async (
 export const updateTheme = async (projectID: string, theme: string) => {
   try {
     if (!projectID || !theme) {
-      return { status: 400, error: 'Project ID and slides are required.' };
+      return { status: 400, error: 'Project ID and theme are required.' };
+    }
+    const checkUser = await onAuthenticateUser();
+    if (!checkUser.user) {
+      return { status: 403, error: "User not authenticated" };
+    }
+    const project = await client.project.findFirst({
+      where: { id: projectID, userId: checkUser.user.id },
+    });
+    if (!project) {
+      return { status: 404, error: "Project not found" };
     }
 
     const updatedProject = await client.project.update({
@@ -220,7 +259,7 @@ export const deleteAllProjects = async (projectIds: string[]) => {
     }
 
     const checkUser = await onAuthenticateUser()
-    if (checkUser.status !== 200 || !checkUser.user) {
+    if (!checkUser.user) {
       return { status: 403, error: 'User not authenticated.' }
     }
     const userId = checkUser.user.id
@@ -259,7 +298,7 @@ export const deleteAllProjects = async (projectIds: string[]) => {
 export const getDeletedProjects = async () => {
   try {
     const checkUser = await onAuthenticateUser()
-    if (checkUser.status !== 200 || !checkUser.user) {
+    if (!checkUser.user) {
       return { status: 403, error: 'User not authenticated' }
     }
 

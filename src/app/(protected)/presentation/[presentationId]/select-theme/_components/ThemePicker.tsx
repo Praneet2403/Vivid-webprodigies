@@ -1,7 +1,7 @@
 import { generateLayouts } from "@/actions/chatgpt";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Theme } from "@/lib/types";
+import { Slide, Theme } from "@/lib/types";
 import { useSlideStore } from "@/store/useSlideStore";
 import { Loader2, Wand2 } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
@@ -19,36 +19,35 @@ type Props = {
 const ThemePicker = ({ onThemeSelect, selectedTheme }: Props) => {
   const router = useRouter();
   const params = useParams();
-  const { project, setSlides, currentTheme } = useSlideStore();
+  const { setSlides } = useSlideStore();
   const [loading, setLoading] = useState(false);
+  const presentationId = params.presentationId as string;
 
   const handleGenerateLayouts = async () => {
-    setLoading(true);
+    if (loading) return;
     if (!selectedTheme) {
       toast.error("Error", {
         description: "Please select a theme first.",
       });
       return;
     }
-    if (project?.id === "") {
+    if (!presentationId) {
       toast.error("Error", {
         description: "Please create a project first.",
       });
       router.push("/create-page");
       return;
     }
+    setLoading(true);
     try {
-      const res = await generateLayouts(
-        params.presentationId as string,
-        currentTheme.name
-      );
+      const res = await generateLayouts(presentationId, selectedTheme.name);
 
       if (res.status !== 200) {
         throw new Error(res.error || "Failed to generate layouts.");
       }
       
       // At this point, TypeScript knows res.status === 200, so res.data should exist
-      const data = (res as { status: 200; data: any }).data;
+      const data = (res as { status: 200; data: Slide[] }).data;
       
       if (!data) {
         throw new Error("No data received from layout generation.");
@@ -57,13 +56,14 @@ const ThemePicker = ({ onThemeSelect, selectedTheme }: Props) => {
       toast.success("Success", {
         description: "Layouts generated successfully!",
       });
-      router.push(`/presentation/${project?.id}`);
-      
       setSlides(data);
-      }
-     catch (error) {
+      router.push(`/presentation/${presentationId}`);
+    } catch (error) {
       toast.error("Error", {
-        description: "Failed to generate layouts. Please try again.",
+        description:
+          error instanceof Error
+            ? error.message
+            : "Failed to generate layouts. Please try again.",
       });
     } finally {
       setLoading(false);
@@ -78,7 +78,6 @@ const ThemePicker = ({ onThemeSelect, selectedTheme }: Props) => {
           selectedTheme.sidebarColor || selectedTheme.backgroundColor,
         borderLeft: `1px solid ${selectedTheme.accentColor}20`,
       }}
-      onClick={handleGenerateLayouts}
     >
       <div className="p-8 space-y-6 flex-shrink-0">
         <div className="space-y-2">
@@ -97,6 +96,8 @@ const ThemePicker = ({ onThemeSelect, selectedTheme }: Props) => {
         </div>
         <Button
           className="w-full h-12 text-lg font-medium shadow-lg hover:shadow-xl transition-all duration-300 "
+          onClick={handleGenerateLayouts}
+          disabled={loading}
           style={{
             backgroundColor: selectedTheme.accentColor,
             color: selectedTheme.backgroundColor,

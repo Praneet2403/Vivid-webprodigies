@@ -119,7 +119,6 @@ export const DraggableSlide: React.FC<DraggableSlideProps> = ({
     drag(drop(ref))
 
     const handleContentChange = (contentId: string, newContent: string | string[] | string[][]) => {
-        console.log('Content Changed', contentId, newContent)
         if (isEditable) {
             updateContentItem(slide.id, contentId, newContent)
         }
@@ -137,6 +136,7 @@ export const DraggableSlide: React.FC<DraggableSlideProps> = ({
                 isDragging ? 'opacity-50' : 'opacity-100'
             )}
             style={{
+                backgroundColor: currentTheme.slideBackgroundColor,
                 backgroundImage: currentTheme.gradientBackground,
             }}
             onClick={() => setCurrentSlide(index)}
@@ -228,7 +228,6 @@ const Editor = ({ isEditable }: Props) => {
     
     const handleDelete = (id: string) => {
         if (isEditable) {
-            console.log('Deleting', id)
             removeSlide(id)
         }
     }

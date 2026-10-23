@@ -10,10 +10,14 @@ type Props = {}
 const Page= async (props: Props) => {
 
     const checkUser = await onAuthenticateUser();
-    if (!checkUser.user) {
+    if (checkUser.status === 403) {
         redirect('/sign-in');
     }
-    if(!checkUser.user.subscription) {
+    if (!checkUser.user) {
+        throw new Error('Could not load your account. Please try again.');
+    }
+    // Payments are optional; only require a subscription when LemonSqueezy is set up
+    if (process.env.LEMON_SQUEEZY_API_KEY && !checkUser.user.subscription) {
         redirect('/dashboard');
     }
 

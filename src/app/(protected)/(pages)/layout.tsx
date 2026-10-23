@@ -18,8 +18,11 @@ const Layout =  async ({ children }: Props) => {
 
   const checkUser = await onAuthenticateUser();
 
-  if (!checkUser.user) {
+  if (checkUser.status === 403) {
     redirect('/sign-in');
+  }
+  if (!checkUser.user) {
+    throw new Error('Could not load your account. Please try again.');
   }
 
   return (

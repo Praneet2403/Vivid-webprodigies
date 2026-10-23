@@ -25,7 +25,6 @@ const PresentationMode = ({ onClose }: Props) => {
             setCurrentSlideIndex((prev) => Math.min(slides.length - 1, prev + 1));
         }
     };
-    const isLastSlide = currentSlideIndex === slides.length - 1;
 
 
     useEffect(() => {
@@ -48,6 +47,11 @@ const PresentationMode = ({ onClose }: Props) => {
       
         return () => window.removeEventListener('keydown', handleKeyDown)
       }, [slides.length, currentSlideIndex])
+
+    if (slides.length === 0) {
+        return null
+    }
+
     return (
         <div className="fixed inset-0 bg-black flex items-center justify-center z-50">
             <div
@@ -99,13 +103,9 @@ const PresentationMode = ({ onClose }: Props) => {
                     >
                         <ChevronLeft className="h-4 w-4" />
                     </Button>
-                    {
-                        isLastSlide && (
-                            <Button variant="outline" size="icon" onClick={goToNextSlide}>
-                                <ChevronRight className="h-4 w-4" />
-                            </Button>
-                        )
-                    }
+                    <Button variant="outline" size="icon" onClick={goToNextSlide}>
+                        <ChevronRight className="h-4 w-4" />
+                    </Button>
                 </div>
             </div>
         </div>

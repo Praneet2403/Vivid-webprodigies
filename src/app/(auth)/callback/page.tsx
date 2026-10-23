@@ -10,10 +10,11 @@ const AuthCallbackPage = async () => {
     
     if(auth.status === 200 || auth.status === 201) {
         redirect('/dashboard');
-    }else if(auth.status === 403 || auth.status === 400 || auth.status === 500) {
+    }else if(auth.status === 403) {
         redirect('/sign-in');
-
     }
+    // Signed in, but the account could not be created or loaded; going back to /sign-in would loop
+    throw new Error('Could not load your account. Please try again.');
 }   
 
 export default AuthCallbackPage

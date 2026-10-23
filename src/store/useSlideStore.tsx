@@ -48,7 +48,8 @@ export const useSlideStore = create(
         },
         reorderSlides: (fromIndex: number, toIndex: number) => {
             set((state) => {
-                const newSlides = [...state.slides]
+                // Indexes come from the ordered list, so splice that list, not the raw one
+                const newSlides = [...state.slides].sort((a, b) => a.slideOrder - b.slideOrder)
                 const [removed] = newSlides.splice(fromIndex, 1)
                 newSlides.splice(toIndex, 0, removed)
                 return {
@@ -61,19 +62,26 @@ export const useSlideStore = create(
         },
         addSlideAtIndex: (slide: Slide, index: number) =>
             set((state) => {
-                const newSlides = [...state.slides]
+                const newSlides = [...state.slides].sort((a, b) => a.slideOrder - b.slideOrder)
                 newSlides.splice(index, 0, { ...slide, id: uuidv4() })
-                newSlides.forEach((s, i) => {
-                    s.slideOrder = i
-                })
 
-                return { slides: newSlides, currentSlide: index }
+                return {
+                    slides: newSlides.map((s, i) => ({ ...s, slideOrder: i })),
+                    currentSlide: index,
+                }
             }),
 
         removeSlide: (id) =>
-            set((state) => ({
-                slides: state.slides.filter((slide) => slide.id !== id),
-            })),
+            set((state) => {
+                const slides = state.slides
+                    .filter((slide) => slide.id !== id)
+                    .sort((a, b) => a.slideOrder - b.slideOrder)
+                    .map((slide, index) => ({ ...slide, slideOrder: index }))
+                return {
+                    slides,
+                    currentSlide: Math.min(state.currentSlide, Math.max(0, slides.length - 1)),
+                }
+            }),
         updateContentItem: (slideId, contentId, newContent) => {
             set((state) => {
                 const updateContentRecursively = (item: ContentItem):
@@ -88,7 +96,7 @@ export const useSlideStore = create(
                         return {
                             ...item,
                             content: item.content.map((subItem) => {
-                                if (typeof subItem === 'string') {
+                                if (typeof subItem !== 'string') {
                                     return updateContentRecursively(subItem as ContentItem)
                                 }
                                 return subItem
@@ -133,6 +141,18 @@ export const useSlideStore = create(
                         content: updatedContent as unknown as string[]
                       }
                     }
+                    // The target column is usually nested, so keep searching down the tree
+                    if (
+                      Array.isArray(content.content) &&
+                      content.content.every((i) => typeof i !== 'string')
+                    ) {
+                      return {
+                        ...content,
+                        content: (content.content as ContentItem[]).map(
+                          updateContentRecursively
+                        ),
+                      }
+                    }
                     return content
                   }
                   return {
@@ -157,6 +177,8 @@ export const useSlideStore = create(
     }),
         {
             name: 'slide-storage', // unique name for the storage
+            // Slides always come from the database; persisting them leaks one project's slides into another
+            partialize: (state) => ({ currentTheme: state.currentTheme }) as SlideState,
         })
 
 )

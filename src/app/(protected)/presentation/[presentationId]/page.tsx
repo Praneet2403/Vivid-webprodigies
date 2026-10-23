@@ -1,10 +1,12 @@
 "use client";
 import { getProjectById } from "@/actions/projects";
 import { themes } from "@/lib/constants";
+import { Slide } from "@/lib/types";
 import { useSlideStore } from "@/store/useSlideStore";
 import { Loader2 } from "lucide-react";
 import { useTheme } from "next-themes";
-import { redirect, useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
+import { v4 as uuidv4 } from "uuid";
 import React, { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { DndProvider } from "react-dnd";
@@ -19,6 +21,8 @@ type Props = {};
 const Page = (props: Props) => {
   //WIP: create the presentation view
   const params = useParams();
+  const router = useRouter();
+  const presentationId = params.presentationId as string;
   const { setTheme } = useTheme();
   const [isLoading, setIsLoading] = useState(true);
   const { setSlides, setProject, currentTheme, setCurrentTheme } =
@@ -27,12 +31,20 @@ const Page = (props: Props) => {
   useEffect(() => {
     (async () => {
       try {
-        const res = await getProjectById(params.presentationId as string);
+        const res = await getProjectById(presentationId);
         if (res.status !== 200 || !res.data) {
           toast.error("Error", {
             description: "Unable to fetch project",
           });
-          redirect("/dasboard");
+          router.push("/dashboard");
+          return;
+        }
+
+        // Slides are generated on the theme step; send the user there if that never happened
+        if (!Array.isArray(res.data.slides) || res.data.slides.length === 0) {
+          setProject(res.data);
+          router.replace(`/presentation/${presentationId}/select-theme`);
+          return;
         }
 
         const findTheme = themes.find(
@@ -41,7 +53,15 @@ const Page = (props: Props) => {
         setCurrentTheme(findTheme || themes[0]);
         setTheme(findTheme?.type === "dark" ? "dark" : "light");
         setProject(res.data);
-        setSlides(JSON.parse(JSON.stringify(res.data.slides)));
+        const slides = JSON.parse(JSON.stringify(res.data.slides)) as Slide[];
+        setSlides(
+          slides.map((slide, index) => ({
+            ...slide,
+            id: slide.id || uuidv4(),
+            slideOrder:
+              typeof slide.slideOrder === "number" ? slide.slideOrder : index,
+          }))
+        );
       } catch (error) {
         toast.error("Error", {
           description: "Failed to load project. Please try again.",
@@ -63,7 +83,7 @@ const Page = (props: Props) => {
   return (
     <DndProvider backend={HTML5Backend}>
       <div className="min-h-screen flex flex-col">
-        <Navbar presentationId={params.presentation as string} />
+        <Navbar presentationId={presentationId} />
         <div
           className="flex-1 flex overflow-hidden pt-16"
           style={{
