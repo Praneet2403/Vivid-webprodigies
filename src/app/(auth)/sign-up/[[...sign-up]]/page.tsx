@@ -4,7 +4,7 @@ import React from 'react'
 
 const Signup = () => {
   return (
-    <SignUp />
+    <SignUp forceRedirectUrl="/callback" fallbackRedirectUrl="/callback" />
   )
 }
 
